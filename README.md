@@ -1,6 +1,6 @@
 # step-p11-kit-images
 
-Minimal container images and deployment assets for using Smallstep with PKCS#11 HSMs via [`p11-kit`](https://p11-glue.github.io/p11-glue/p11-kit.html).
+Minimal container images and deployment assets for using [`step-ca`](https://github.com/smallstep/certificates) with PKCS#11 HSMs via [`p11-kit`](https://p11-glue.github.io/p11-glue/p11-kit.html).
 
 > [!IMPORTANT]
 > This project is a proof of concept and is not ready for production.

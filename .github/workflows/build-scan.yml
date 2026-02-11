@@ -1,0 +1,103 @@
+name: build-scan
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      OWNER: ${{ github.repository_owner }}
+      STEP_CA_IMAGE: ghcr.io/${{ github.repository_owner }}/step-ca-p11-kit
+      SOFTHSM_IMAGE: ghcr.io/${{ github.repository_owner }}/softhsm2-p11-kit
+      STEP_TEST_INIT_IMAGE: ghcr.io/${{ github.repository_owner }}/step-ca-p11-kit-test-init
+      CI_IMAGE_ARCHIVE_DIR: .tmp/ci-images
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.6.0
+
+      - name: Install Podman
+        run: sudo apt-get update && sudo apt-get install -y podman skopeo
+
+      - name: Verify upstream images with Cosign
+        env:
+          STEP_CLI_IMAGE: docker.io/smallstep/step-cli:latest
+        run: |
+          set -euo pipefail
+          CLI_DIGEST=$(skopeo inspect --format '{{.Digest}}' docker://${STEP_CLI_IMAGE})
+
+          cosign verify \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp "https://github.com/smallstep/.*" \
+            ${STEP_CLI_IMAGE%@*}@${CLI_DIGEST}
+
+      - name: Build images
+        run: |
+          set -euo pipefail
+          make REGISTRY="${REGISTRY}" OWNER="${OWNER}" build-all
+
+      - name: Save image tarballs
+        run: |
+          set -euo pipefail
+          mkdir -p "${CI_IMAGE_ARCHIVE_DIR}"
+          podman save --format docker-archive -o "${CI_IMAGE_ARCHIVE_DIR}/step-ca-p11-kit.tar" "${STEP_CA_IMAGE}:latest"
+          podman save --format docker-archive -o "${CI_IMAGE_ARCHIVE_DIR}/softhsm2-p11-kit.tar" "${SOFTHSM_IMAGE}:latest"
+          podman save --format docker-archive -o "${CI_IMAGE_ARCHIVE_DIR}/step-ca-p11-kit-test-init.tar" "${STEP_TEST_INIT_IMAGE}:latest"
+
+      - name: Verify image archives
+        run: |
+          set -euo pipefail
+          ls -lah "${CI_IMAGE_ARCHIVE_DIR}"
+          for archive in \
+            "${CI_IMAGE_ARCHIVE_DIR}/step-ca-p11-kit.tar" \
+            "${CI_IMAGE_ARCHIVE_DIR}/softhsm2-p11-kit.tar" \
+            "${CI_IMAGE_ARCHIVE_DIR}/step-ca-p11-kit-test-init.tar"
+          do
+            test -f "${archive}"
+            tar -tf "${archive}" | grep -Eq '(^|/)\.?manifest\.json$'
+          done
+
+      - name: Scan step-ca-p11-kit with Trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          input: .tmp/ci-images/step-ca-p11-kit.tar
+          format: table
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Scan softhsm2-p11-kit with Trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          input: .tmp/ci-images/softhsm2-p11-kit.tar
+          format: table
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Scan step-ca-p11-kit-test-init with Trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          input: .tmp/ci-images/step-ca-p11-kit-test-init.tar
+          format: table
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tarballs
+          path: .tmp/ci-images

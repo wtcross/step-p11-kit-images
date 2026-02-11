@@ -1,0 +1,38 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y podman bats
+
+      - name: Build images
+        run: make build-all
+
+      - name: Run unit and functional tests
+        run: make test
+
+      - name: Run systemd unit test
+        run: make run-systemd-testing
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bats-test-logs
+          if-no-files-found: warn
+          path: |
+            tests/unit/logs
+            tests/functional/logs

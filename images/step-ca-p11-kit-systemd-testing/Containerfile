@@ -1,0 +1,77 @@
+ARG DEBIAN_TRIXIE_DIGEST
+
+FROM docker.io/debian:trixie-slim@${DEBIAN_TRIXIE_DIGEST}
+
+ARG P11_KIT_VERSION
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash ca-certificates \
+        dbus-user-session \
+        fuse-overlayfs \
+        nftables \
+        p11-kit=${P11_KIT_VERSION}* \
+        podman \
+        slirp4netns \
+        softhsm2 \
+        systemd \
+        uidmap \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1001 -s /bin/bash step
+
+COPY images/step-ca-p11-kit-systemd-testing/init-softhsm.sh /usr/local/bin/init-softhsm.sh
+COPY images/step-ca-p11-kit-systemd-testing/start-step-ca-p11-kit-target.sh /usr/local/bin/start-step-ca-p11-kit-target.sh
+COPY images/step-ca-p11-kit-systemd-testing/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY images/step-ca-p11-kit-systemd-testing/step-systemd-test.service /etc/systemd/system/step-systemd-test.service
+COPY scripts/generate-instance-env.sh /usr/local/bin/generate-instance-env.sh
+COPY scripts/common/*.sh /usr/local/share/step-p11-kit/
+COPY deploy/systemd/ /home/step/.config/containers/systemd/
+COPY deploy/systemd/ /root/.config/containers/systemd/
+
+RUN chmod 0755 /usr/local/bin/init-softhsm.sh /usr/local/bin/start-step-ca-p11-kit-target.sh /usr/local/bin/entrypoint.sh /usr/local/bin/generate-instance-env.sh /usr/local/share/step-p11-kit/*.sh \
+    && mkdir -p /var/lib/softhsm /etc/softhsm /run/user/0 /run/user/1001 \
+    && mkdir -p /home/step/.config/containers /home/step/.config/systemd/user /home/step/.config/p11-kit-server /home/step/.config/step-ca /home/step/.local/share/containers /home/step/.step \
+    && mkdir -p /root/.config/containers /root/.config/systemd/user /root/.config/p11-kit-server /root/.config/step-ca /root/.step
+
+RUN cp /home/step/.config/containers/systemd/p11-kit-server@.service /home/step/.config/systemd/user/ \
+    && cp /home/step/.config/containers/systemd/p11-kit-server@.socket /home/step/.config/systemd/user/ \
+    && cp /home/step/.config/containers/systemd/p11-kit-server@.target /home/step/.config/systemd/user/ \
+    && cp /home/step/.config/containers/systemd/step-ca-p11-kit@.target /home/step/.config/systemd/user/ \
+    && cp /root/.config/containers/systemd/p11-kit-server@.service /root/.config/systemd/user/ \
+    && cp /root/.config/containers/systemd/p11-kit-server@.socket /root/.config/systemd/user/ \
+    && cp /root/.config/containers/systemd/p11-kit-server@.target /root/.config/systemd/user/ \
+    && cp /root/.config/containers/systemd/step-ca-p11-kit@.target /root/.config/systemd/user/
+
+RUN sed -i 's/^Pull=.*/Pull=never/' /home/step/.config/containers/systemd/step-ca-p11-kit@.container \
+    && sed -i 's/^UserNS=.*/UserNS=host/' /home/step/.config/containers/systemd/step-ca-p11-kit@.container \
+    && sed -i 's/^Pull=.*/Pull=never/' /root/.config/containers/systemd/step-ca-p11-kit@.container \
+    && sed -i 's/^UserNS=.*/UserNS=host/' /root/.config/containers/systemd/step-ca-p11-kit@.container \
+    && sed -i '/^SecurityLabelType=/d;/^SecurityLabelLevel=/d' /home/step/.config/containers/systemd/step-ca-p11-kit@.container \
+    && sed -i '/^SecurityLabelType=/d;/^SecurityLabelLevel=/d' /root/.config/containers/systemd/step-ca-p11-kit@.container \
+    && sed -i '/^ExecStartPre=\/usr\/bin\/chcon/d' /home/step/.config/systemd/user/p11-kit-server@.service \
+    && sed -i '/^ExecStartPre=\/usr\/bin\/chcon/d' /root/.config/systemd/user/p11-kit-server@.service \
+    && sed -i '/^Requires=p11-kit-server@%i.socket/d;/^After=p11-kit-server@%i.socket/d' /home/step/.config/systemd/user/p11-kit-server@.service \
+    && sed -i '/^Requires=p11-kit-server@%i.socket/d;/^After=p11-kit-server@%i.socket/d' /root/.config/systemd/user/p11-kit-server@.service \
+    && sed -i 's|--foreground --sh --provider=${STEP_HSM_MODULE_PATH} "${STEP_HSM_PKCS11_URI}"|--foreground --name=%t/p11-kit/%i.sock --user=step --provider=${STEP_HSM_MODULE_PATH} "${STEP_HSM_PKCS11_URI}"|' /home/step/.config/systemd/user/p11-kit-server@.service \
+    && sed -i 's|--foreground --sh --provider=${STEP_HSM_MODULE_PATH} "${STEP_HSM_PKCS11_URI}"|--foreground --name=%t/p11-kit/%i.sock --user=step --provider=${STEP_HSM_MODULE_PATH} "${STEP_HSM_PKCS11_URI}"|' /root/.config/systemd/user/p11-kit-server@.service \
+    && sed -i '/p11-kit-server@%i.socket/d' /home/step/.config/systemd/user/p11-kit-server@.target \
+    && sed -i '/p11-kit-server@%i.socket/d' /root/.config/systemd/user/p11-kit-server@.target
+
+RUN ln -sf /dev/null /etc/systemd/system/getty@tty1.service \
+    && ln -sf /dev/null /etc/systemd/system/getty.target \
+    && ln -sf /dev/null /etc/systemd/system/console-getty.service \
+    && ln -sf /dev/null /etc/systemd/system/container-getty@1.service \
+    && ln -sf /dev/null /etc/systemd/system/serial-getty@ttyS0.service \
+    && ln -sf /dev/null /etc/systemd/system/autovt@.service \
+    && mkdir -p /etc/systemd/system/multi-user.target.wants \
+    && ln -sf /etc/systemd/system/step-systemd-test.service /etc/systemd/system/multi-user.target.wants/step-systemd-test.service \
+    && if [ ! -e /sbin/init ]; then ln -s /lib/systemd/systemd /sbin/init; fi
+
+RUN chown -R step:step /var/lib/softhsm /etc/softhsm /run/user/1001 /home/step
+
+WORKDIR /home/step
+
+ENTRYPOINT ["/sbin/init"]

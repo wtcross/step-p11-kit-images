@@ -1,0 +1,27 @@
+.git
+.github
+.vscode
+.idea
+.DS_Store
+
+# Logs
+*.log
+
+# Test logs and temp files
+tests/functional/logs
+.tmp/
+
+# Local env files
+*.env
+*.env.local
+!versions.env
+
+# Podman saved images
+/tmp/step-p11-kit-images
+*.tar
+
+# Build output
+bin
+
+tests/
+docs/

@@ -1,0 +1,81 @@
+ARG DEBIAN_TRIXIE_DIGEST
+
+FROM docker.io/debian:trixie-slim@${DEBIAN_TRIXIE_DIGEST} AS builder
+
+ARG STEP_CA_VERSION
+ARG STEP_CLI_VERSION
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates curl cosign \
+        golang make gcc pkg-config \
+        libc6-dev libpcsclite-dev
+
+# Install version-pinned step-cli.
+# Package verified by cosign before installation.
+RUN echo "https://github.com/smallstep/cli/releases/download/v${STEP_CLI_VERSION}/step-cli_amd64.deb" \
+    && curl -fsSL -o "/tmp/step-cli_amd64.deb" "https://github.com/smallstep/cli/releases/download/v${STEP_CLI_VERSION}/step-cli_amd64.deb" \
+    && curl -fsSL -o "/tmp/step-cli_amd64.deb.sig" "https://github.com/smallstep/cli/releases/download/v${STEP_CLI_VERSION}/step-cli_amd64.deb.sig" \
+    && curl -fsSL -o "/tmp/step-cli_amd64.deb.pem" "https://github.com/smallstep/cli/releases/download/v${STEP_CLI_VERSION}/step-cli_amd64.deb.pem" \
+    && cosign verify-blob \
+        --certificate "/tmp/step-cli_amd64.deb.pem" \
+        --signature "/tmp/step-cli_amd64.deb.sig" \
+        --certificate-identity-regexp "https://github\\.com/smallstep/workflows/.*" \
+        --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+        "/tmp/step-cli_amd64.deb" \
+    && apt-get install -y --no-install-recommends "/tmp/step-cli_amd64.deb" \
+    && rm -f "/tmp/step-cli_amd64.deb" "/tmp/step-cli_amd64.deb.sig" "/tmp/step-cli_amd64.deb.pem" \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# Install version-pinned step-ca.
+# Built from source with CGO enabled for PKCS#11 support.
+# Source archive verified by cosign before compiling.
+RUN curl -sSfL -O "https://github.com/smallstep/certificates/releases/download/v${STEP_CA_VERSION}/step-ca_${STEP_CA_VERSION}.tar.gz" \
+    && curl -sSfL -O "https://github.com/smallstep/certificates/releases/download/v${STEP_CA_VERSION}/step-ca_${STEP_CA_VERSION}.tar.gz.sig" \
+    && curl -sSfL -O "https://github.com/smallstep/certificates/releases/download/v${STEP_CA_VERSION}/step-ca_${STEP_CA_VERSION}.tar.gz.pem" \
+    && cosign verify-blob \
+        --certificate "step-ca_${STEP_CA_VERSION}.tar.gz.pem" \
+        --signature "step-ca_${STEP_CA_VERSION}.tar.gz.sig" \
+        --certificate-identity-regexp "https://github\.com/smallstep/workflows/.*" \
+        --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+        "step-ca_${STEP_CA_VERSION}.tar.gz" \
+    && mkdir certificates \
+    && tar -xzf "step-ca_${STEP_CA_VERSION}.tar.gz" -C certificates \
+    && cd /src/certificates \
+    && make V=1 GO_ENVS="CGO_ENABLED=1" bin/step-ca
+
+FROM docker.io/debian:trixie-slim@${DEBIAN_TRIXIE_DIGEST} AS runtime
+
+ARG P11_KIT_VERSION
+ARG STEP_CA_PORT=9000
+ENV STEP_CA_PORT=${STEP_CA_PORT}
+
+ENV STEPPATH=/home/step/.step
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libpcsclite1 jq \
+        p11-kit=${P11_KIT_VERSION}* \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1001 -s /bin/bash step
+
+COPY --from=builder /src/certificates/bin/step-ca /usr/local/bin/step-ca
+COPY --from=builder /usr/bin/step /usr/local/bin/step
+COPY scripts/common/*.sh /usr/local/share/step-p11-kit/
+COPY images/step-ca-p11-kit/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/share/step-p11-kit/*.sh
+
+USER step
+WORKDIR /home/step
+EXPOSE ${STEP_CA_PORT}
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/local/bin/step-ca"]

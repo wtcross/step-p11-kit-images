@@ -1,0 +1,26 @@
+FROM ghcr.io/wtcross/step-ca-p11-kit:latest
+
+ARG P11_KIT_VERSION
+ENV DEBIAN_FRONTEND=noninteractive
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        openssl pkcs11-provider \
+        opensc opensc-pkcs11 \
+        p11-kit=${P11_KIT_VERSION}* \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY images/step-ca-p11-kit-test-init/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY images/step-ca-p11-kit-test-init/create-ca-hierarchy.sh /usr/local/bin/create-ca-hierarchy.sh
+COPY images/step-ca-p11-kit-test-init/openssl-pkcs11.cnf /etc/ssl/openssl-pkcs11.cnf
+COPY scripts/common/*.sh /usr/local/share/step-p11-kit/
+
+RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/bin/create-ca-hierarchy.sh /usr/local/share/step-p11-kit/*.sh
+
+USER step
+WORKDIR /home/step
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/local/bin/create-ca-hierarchy.sh"]

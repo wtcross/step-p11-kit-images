@@ -1,0 +1,10 @@
+[Unit]
+Description=p11-kit server socket - %i
+PartOf=p11-kit-server@%i.target
+
+[Socket]
+ListenStream=%t/p11-kit/%i.sock
+SocketMode=0600
+
+[Install]
+WantedBy=p11-kit-server@%i.target

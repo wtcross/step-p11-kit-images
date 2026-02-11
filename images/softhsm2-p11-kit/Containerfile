@@ -1,0 +1,26 @@
+ARG DEBIAN_TRIXIE_DIGEST
+
+FROM docker.io/debian:trixie-slim@${DEBIAN_TRIXIE_DIGEST}
+
+ARG P11_KIT_VERSION
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash ca-certificates \
+        softhsm2 p11-kit=${P11_KIT_VERSION}* \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY images/softhsm2-p11-kit/init-softhsm.sh /usr/local/bin/init-softhsm.sh
+COPY images/softhsm2-p11-kit/start-p11-kit-server.sh /usr/local/bin/start-p11-kit-server.sh
+COPY images/softhsm2-p11-kit/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY scripts/common/*.sh /usr/local/share/step-p11-kit/
+
+RUN chmod 0755 /usr/local/bin/init-softhsm.sh /usr/local/bin/start-p11-kit-server.sh /usr/local/bin/entrypoint.sh /usr/local/share/step-p11-kit/*.sh
+
+RUN mkdir -p /var/lib/softhsm /etc/softhsm && chown -R 1001:1001 /var/lib/softhsm /etc/softhsm
+
+USER 1001
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,0 +1,125 @@
+name: sign
+
+on:
+  workflow_dispatch:
+  release:
+    types: [ published ]
+  workflow_run:
+    workflows: [ "tests" ]
+    types: [ completed ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name || 'manual' }}
+  cancel-in-progress: true
+
+jobs:
+  sign:
+    if: >
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'
+      ) ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'release'
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      OWNER: ${{ github.repository_owner }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve image tag metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+          echo "short_sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Podman
+        run: sudo apt-get update && sudo apt-get install -y podman skopeo
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.6.0
+
+      - name: Build images
+        run: |
+          set -euo pipefail
+          make REGISTRY="${REGISTRY}" OWNER="${OWNER}" build-all
+
+      - name: Tag images
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${{ steps.metadata.outputs.short_sha }}"
+
+          podman tag "${REGISTRY}/${OWNER}/step-ca-p11-kit:latest" "${REGISTRY}/${OWNER}/step-ca-p11-kit:sha-${SHORT_SHA}"
+          podman tag "${REGISTRY}/${OWNER}/softhsm2-p11-kit:latest" "${REGISTRY}/${OWNER}/softhsm2-p11-kit:sha-${SHORT_SHA}"
+          podman tag "${REGISTRY}/${OWNER}/step-ca-p11-kit-test-init:latest" "${REGISTRY}/${OWNER}/step-ca-p11-kit-test-init:sha-${SHORT_SHA}"
+
+      - name: Login to GHCR (Podman)
+        run: echo "${{ github.token }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push images
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${{ steps.metadata.outputs.short_sha }}"
+
+          podman push "${REGISTRY}/${OWNER}/step-ca-p11-kit:sha-${SHORT_SHA}"
+          podman push "${REGISTRY}/${OWNER}/softhsm2-p11-kit:sha-${SHORT_SHA}"
+          podman push "${REGISTRY}/${OWNER}/step-ca-p11-kit-test-init:sha-${SHORT_SHA}"
+
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            podman push "${REGISTRY}/${OWNER}/step-ca-p11-kit:latest"
+            podman push "${REGISTRY}/${OWNER}/softhsm2-p11-kit:latest"
+            podman push "${REGISTRY}/${OWNER}/step-ca-p11-kit-test-init:latest"
+          fi
+
+      - name: Login to GHCR (Docker auth for Cosign)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Pre-sign auth check
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${{ steps.metadata.outputs.short_sha }}"
+          cosign version
+          skopeo inspect "docker://${REGISTRY}/${OWNER}/step-ca-p11-kit:sha-${SHORT_SHA}" >/dev/null
+
+      - name: Verify latest resolves to current digest
+        if: github.event_name == 'workflow_run'
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${{ steps.metadata.outputs.short_sha }}"
+
+          for image in step-ca-p11-kit softhsm2-p11-kit step-ca-p11-kit-test-init; do
+            SHA_DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://${REGISTRY}/${OWNER}/${image}:sha-${SHORT_SHA}")
+            LATEST_DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://${REGISTRY}/${OWNER}/${image}:latest")
+
+            echo "${image}: sha-${SHORT_SHA}=${SHA_DIGEST}, latest=${LATEST_DIGEST}"
+            test "${SHA_DIGEST}" = "${LATEST_DIGEST}"
+          done
+
+      - name: Sign images (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${{ steps.metadata.outputs.short_sha }}"
+
+          CA_DIGEST=$(skopeo inspect --format '{{.Digest}}' docker://${REGISTRY}/${OWNER}/step-ca-p11-kit:sha-${SHORT_SHA})
+          SOFTHSM_DIGEST=$(skopeo inspect --format '{{.Digest}}' docker://${REGISTRY}/${OWNER}/softhsm2-p11-kit:sha-${SHORT_SHA})
+          TEST_INIT_DIGEST=$(skopeo inspect --format '{{.Digest}}' docker://${REGISTRY}/${OWNER}/step-ca-p11-kit-test-init:sha-${SHORT_SHA})
+
+          cosign sign --yes "${REGISTRY}/${OWNER}/step-ca-p11-kit@${CA_DIGEST}"
+          cosign sign --yes "${REGISTRY}/${OWNER}/softhsm2-p11-kit@${SOFTHSM_DIGEST}"
+          cosign sign --yes "${REGISTRY}/${OWNER}/step-ca-p11-kit-test-init@${TEST_INIT_DIGEST}"

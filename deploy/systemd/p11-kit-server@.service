@@ -1,0 +1,15 @@
+[Unit]
+Description=p11-kit PKCS#11 Server (User Session) - %i
+PartOf=p11-kit-server@%i.target
+Requires=p11-kit-server@%i.socket
+After=p11-kit-server@%i.socket
+
+[Service]
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+EnvironmentFile=%h/.config/p11-kit-server/%i.env
+ExecStartPre=/usr/bin/chcon -R -t container_file_t -l s0:c100,c200 %t/p11-kit
+ExecStart=/usr/bin/p11-kit server --foreground --sh --provider=${STEP_HSM_MODULE_PATH} "${STEP_HSM_PKCS11_URI}"
+Restart=on-failure
+
+[Install]
+WantedBy=p11-kit-server@%i.target

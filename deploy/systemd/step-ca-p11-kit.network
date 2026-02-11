@@ -1,0 +1,8 @@
+[Unit]
+Description=Step CA Network
+
+[Network]
+Label=app=step-ca-p11-kit
+NetworkName=step-ca-p11-kit
+Driver=bridge
+Options=com.docker.network.bridge.name=step-ca-p11-kit

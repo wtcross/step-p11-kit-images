@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "matchFileNames": ["versions.env"],
+      "groupName": "versions.env"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^versions\\.env$/"],
+      "matchStrings": ["(?:^|\\n)STEP_CA_VERSION=(?<currentValue>[^\\n]+)(?:\\n|$)"],
+      "depNameTemplate": "smallstep/certificates",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^versions\\.env$/"],
+      "matchStrings": ["(?:^|\\n)STEP_CLI_VERSION=(?<currentValue>[^\\n]+)(?:\\n|$)"],
+      "depNameTemplate": "smallstep/cli",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^versions\\.env$/"],
+      "matchStrings": ["(?:^|\\n)P11_KIT_VERSION=(?<currentValue>[^\\n]+)(?:\\n|$)"],
+      "depNameTemplate": "p11-glue/p11-kit",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^versions\\.env$/"],
+      "matchStrings": [
+        "(?:^|\\n)DEBIAN_TRIXIE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})(?:\\n|$)"
+      ],
+      "depNameTemplate": "docker.io/library/debian",
+      "datasourceTemplate": "docker",
+      "currentValueTemplate": "trixie-slim",
+      "versioningTemplate": "docker"
+    }
+  ]
+}

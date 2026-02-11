@@ -1,0 +1,11 @@
+[Unit]
+Description=p11-kit PKCS#11 Server Target
+
+Wants=p11-kit-server@%i.socket
+Wants=p11-kit-server@%i.service
+
+After=p11-kit-server@%i.socket
+After=p11-kit-server@%i.service
+
+[Install]
+WantedBy=default.target

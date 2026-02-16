@@ -60,4 +60,5 @@ systemctl --user enable --now step-ca-p11-kit@prod.target
   - `/run/secrets/root.crt`
   - `/run/secrets/intermediate.crt`
 - `step-ca-p11-kit@.container` uses `Pull=always` by default; use systemd drop-ins if you need different pull behavior.
+- `step-ca-p11-kit@.container` runs `cosign verify` in `ExecStartPre` before startup; install `cosign` on the host and update both `Image=` and `ExecStartPre=` together when overriding the image reference.
 - Use drop-ins to add `PublishPort` or override environment variables.

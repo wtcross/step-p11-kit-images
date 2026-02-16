@@ -137,7 +137,7 @@ function configure_step_ca_container_unit {
   local dns_name=""
 
   sed -i "s|^Image=.*|Image=${STEP_CA_IMAGE}|" "${STEP_CA_CONTAINER_UNIT}"
-  sed -i 's/^Pull=.*/Pull=never/' "${STEP_CA_CONTAINER_UNIT}"
+  sed -i 's/^Pull=.*/Pull=always/' "${STEP_CA_CONTAINER_UNIT}"
   sed -i 's/^UserNS=.*/UserNS=host/' "${STEP_CA_CONTAINER_UNIT}"
   sed -i '/^AddHost=/d' "${STEP_CA_CONTAINER_UNIT}"
 

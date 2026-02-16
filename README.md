@@ -13,17 +13,8 @@ For now this project is intended to be deployed via rootless systemd quadlets.
 
 The primary image in this repo is [`step-ca-p11-kit`](./images/step-ca-p11-kit/README.md). The [`deploy/systemd`](./deploy/systemd/README.md) directory contains systemd unit templates for setting up `p11-kit server` and running `step-ca-p11-kit` as a systemd quadlet on a host.
 
-## Acknowledgements
 
-I want to express gratitude to the Red Hat Security and Crypto Engineering teams (and other contributors) for the incredible open source work they do every day! Thank you 🙏❤️
-
-## Future Work
-
-- Ansible content collection for enabling easy deployment of `step-ca` with the systemd units in this project
-- Kubernetes CSI for using PKCS#11 remoting via `p11-kit server`
-- Investigate using [kryoptic](https://github.com/latchset/kryoptic) instead of SoftHSM2 for testing
-- Investigate using [crypto-auditing](https://github.com/latchset/crypto-auditing) on the host system
-- Investigate creating a quadlet for using kryoptic alongside `step-ca-p11-kit`
+The following diagram will give you a general idea of how this project is meant to be used:
 
 ```text
 +-----------------------------------------------------------------------------------------+
@@ -51,6 +42,18 @@ I want to express gratitude to the Red Hat Security and Crypto Engineering teams
 |                                                                                          |
 +------------------------------------------------------------------------------------------+
 ```
+
+## Acknowledgements
+
+I want to express gratitude to the Red Hat Security and Crypto Engineering teams (and other contributors) for the incredible open source work they do every day! Thank you 🙏❤️
+
+## Future Work
+
+- Ansible content collection for enabling easy deployment of `step-ca` with the systemd units in this project
+- Kubernetes CSI for using PKCS#11 remoting via `p11-kit server`
+- Investigate using [kryoptic](https://github.com/latchset/kryoptic) instead of SoftHSM2 for testing
+- Investigate using [crypto-auditing](https://github.com/latchset/crypto-auditing) on the host system
+- Investigate creating a quadlet for using kryoptic alongside `step-ca-p11-kit`
 
 ## Contents
 

@@ -19,6 +19,7 @@ STEP_TEST_INIT_IMAGE="${STEP_TEST_INIT_IMAGE:-ghcr.io/wtcross/step-ca-p11-kit-te
 
 STEP_CA_NAME="${STEP_CA_NAME:-Test CA}"
 STEP_CA_DNS_NAMES="${STEP_CA_DNS_NAMES:-ca.example.local,ca.internal.local}"
+STEP_CA_EXTERNAL_PORT="${STEP_CA_EXTERNAL_PORT:-9000}"
 STEP_CA_ROOT_CERT_NAME="${STEP_CA_ROOT_CERT_NAME:-root.crt}"
 STEP_CA_INTERMEDIATE_CERT_NAME="${STEP_CA_INTERMEDIATE_CERT_NAME:-intermediate.crt}"
 STEP_HSM_PIN_FILE_PATH="${STEP_HSM_PIN_FILE_PATH:-/run/secrets/hsm-pin}"
@@ -50,6 +51,17 @@ function trim_whitespace {
   value="${value#"${value%%[![:space:]]*}"}"
   value="${value%"${value##*[![:space:]]}"}"
   echo "${value}"
+}
+
+function validate_port_or_die {
+  local port="${1:?port is required}"
+  if [[ ! "${port}" =~ ^[0-9]+$ ]]; then
+    die "port must be numeric: ${port}"
+  fi
+
+  if (( port < 1 || port > 65535 )); then
+    die "port must be between 1 and 65535: ${port}"
+  fi
 }
 
 function step_ca_primary_dns_name {
@@ -165,6 +177,7 @@ function generate_instance_env_files {
     --instance "${INSTANCE}" \
     --ca-name "${STEP_CA_NAME}" \
     --dns "${STEP_CA_DNS_NAMES}" \
+    --external-port "${STEP_CA_EXTERNAL_PORT}" \
     --private-key-pkcs11-uri "${INT_PRIVATE_URI}" \
     --kms-pkcs11-uri "${INT_KMS_URI}" \
     --hsm-module "${SOFTHSM_LIB_PATH}" \
@@ -297,6 +310,7 @@ trap 'cleanup $?' EXIT
 
 require_env STEP_CA_ROOT_PKCS11_TOKEN_LABEL
 require_env STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL
+validate_port_or_die "${STEP_CA_EXTERNAL_PORT}"
 require_file "${STEP_HSM_PIN_FILE_PATH}"
 require_file "${STEP_ADMIN_PASSWORD_FILE}"
 require_dir "${IMAGE_TAR_DIR}"

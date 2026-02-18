@@ -25,6 +25,7 @@ Install these files in your user config:
   --instance prod \
   --ca-name "Example CA" \
   --dns "ca.example.local" \
+  --external-port 9443 \
   --hsm-uri "pkcs11:token=RootCA" \
   --private-key-pkcs11-uri "pkcs11:token=IntermediateCA;id=%01;object=intermediate;type=private?module-path=/usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-client.so&pin-source=file:///run/secrets/hsm-pin" \
   --kms-pkcs11-uri "pkcs11:token=IntermediateCA?module-path=/usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-client.so&pin-source=file:///run/secrets/hsm-pin"
@@ -33,6 +34,7 @@ Install these files in your user config:
 This writes:
 - `%h/.config/p11-kit-server/prod.env`
 - `%h/.config/step-ca/prod.env`
+- `%h/.config/containers/systemd/step-ca-p11-kit@prod.container.d/10-publish-port.conf`
 
 2. Create required Podman secrets for the instance:
 
@@ -61,4 +63,4 @@ systemctl --user enable --now step-ca-p11-kit@prod.target
   - `/run/secrets/intermediate.crt`
 - `step-ca-p11-kit@.container` uses `Pull=always` by default; use systemd drop-ins if you need different pull behavior.
 - `step-ca-p11-kit@.container` runs `cosign verify` in `ExecStartPre` before startup; install `cosign` on the host and update both `Image=` and `ExecStartPre=` together when overriding the image reference.
-- Use drop-ins to add `PublishPort` or override environment variables.
+- `scripts/generate-instance-env.sh` writes a per-instance drop-in with `PublishPort=<external>:9000` so the container always listens on internal port `9000` while the host port remains configurable.

@@ -26,7 +26,7 @@ Required:
 Optional (step-ca):
   --ca-name NAME                    STEP_CA_NAME value
   --dns LIST                        STEP_CA_DNS_NAMES value (comma-separated)
-  --address ADDR                    STEP_CA_ADDRESS (default :9000)
+  --external-port PORT              Host PublishPort value for container port 9000 (default 9000)
   --admin-subject NAME              STEP_CA_ADMIN_SUBJECT (default step)
   --provisioner NAME                STEP_CA_ADMIN_PROVISIONER_NAME (default admin)
   --steppath PATH                   STEPPATH (default /home/step/.step)
@@ -51,7 +51,8 @@ USAGE
 INSTANCE=""
 CA_NAME=""
 DNS_NAMES=""
-ADDRESS=":9000"
+INTERNAL_ADDRESS=":9000"
+EXTERNAL_PORT="9000"
 ADMIN_SUBJECT="step"
 PROVISIONER_NAME="admin"
 STEPPATH="/home/step/.step"
@@ -64,12 +65,23 @@ HSM_MODULE="/usr/lib/x86_64-linux-gnu/pkcs11/opensc-pkcs11.so"
 HSM_URI=""
 FORCE="false"
 
+function validate_port_or_die {
+  local port="${1:?port is required}"
+  if [[ ! "${port}" =~ ^[0-9]+$ ]]; then
+    die "port must be numeric: ${port}"
+  fi
+
+  if (( port < 1 || port > 65535 )); then
+    die "port must be between 1 and 65535: ${port}"
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --instance) INSTANCE="$2"; shift 2 ;;
     --ca-name) CA_NAME="$2"; shift 2 ;;
     --dns) DNS_NAMES="$2"; shift 2 ;;
-    --address) ADDRESS="$2"; shift 2 ;;
+    --external-port) EXTERNAL_PORT="$2"; shift 2 ;;
     --admin-subject) ADMIN_SUBJECT="$2"; shift 2 ;;
     --provisioner) PROVISIONER_NAME="$2"; shift 2 ;;
     --steppath) STEPPATH="$2"; shift 2 ;;
@@ -87,13 +99,16 @@ while [[ $# -gt 0 ]]; do
  done
 
 [[ -n "${INSTANCE}" ]] || die "--instance is required"
+validate_port_or_die "${EXTERNAL_PORT}"
 
 P11_DIR="${HOME}/.config/p11-kit-server"
 CA_DIR="${HOME}/.config/step-ca"
 P11_FILE="${P11_DIR}/${INSTANCE}.env"
 CA_FILE="${CA_DIR}/${INSTANCE}.env"
+CONTAINER_DROPIN_DIR="${HOME}/.config/containers/systemd/step-ca-p11-kit@${INSTANCE}.container.d"
+CONTAINER_DROPIN_FILE="${CONTAINER_DROPIN_DIR}/10-publish-port.conf"
 
-mkdir -p "${P11_DIR}" "${CA_DIR}"
+mkdir -p "${P11_DIR}" "${CA_DIR}" "${CONTAINER_DROPIN_DIR}"
 
 if [[ -f "${P11_FILE}" && "${FORCE}" != "true" ]]; then
   die "Refusing to overwrite ${P11_FILE} (use --force)"
@@ -101,6 +116,10 @@ fi
 
 if [[ -f "${CA_FILE}" && "${FORCE}" != "true" ]]; then
   die "Refusing to overwrite ${CA_FILE} (use --force)"
+fi
+
+if [[ -f "${CONTAINER_DROPIN_FILE}" && "${FORCE}" != "true" ]]; then
+  die "Refusing to overwrite ${CONTAINER_DROPIN_FILE} (use --force)"
 fi
 
 cat > "${P11_FILE}" <<EOF_ENV
@@ -114,7 +133,7 @@ STEP_CA_DNS_NAMES=${DNS_NAMES}
 STEP_CA_PRIVATE_KEY_PKCS11_URI=${PRIVATE_KEY_PKCS11_URI}
 STEP_CA_KMS_PKCS11_URI=${KMS_PKCS11_URI}
 STEP_ADMIN_PASSWORD_FILE=${ADMIN_PASSWORD}
-STEP_CA_ADDRESS=${ADDRESS}
+STEP_CA_ADDRESS=${INTERNAL_ADDRESS}
 STEP_INTERMEDIATE_CERT_FILE=${INTERMEDIATE_CERT}
 STEP_ROOT_CERT_FILE=${ROOT_CERT}
 STEP_CA_ADMIN_SUBJECT=${ADMIN_SUBJECT}
@@ -123,5 +142,11 @@ STEPPATH=${STEPPATH}
 STEP_P11KIT_SOCKET_PATH=/run/p11-kit/${INSTANCE}.sock
 EOF_ENV
 
+cat > "${CONTAINER_DROPIN_FILE}" <<EOF_ENV
+[Container]
+PublishPort=${EXTERNAL_PORT}:9000
+EOF_ENV
+
 log_info "generate-instance-env" "Wrote: ${P11_FILE}"
 log_info "generate-instance-env" "Wrote: ${CA_FILE}"
+log_info "generate-instance-env" "Wrote: ${CONTAINER_DROPIN_FILE}"

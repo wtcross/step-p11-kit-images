@@ -17,8 +17,7 @@ Required:
 Optional:
 - `STEP_CA_ADMIN_SUBJECT` (default `step`)
 - `STEP_CA_ADMIN_PROVISIONER_NAME` (default `admin`)
-- `STEP_CA_PORT` (default `9000`)
-- `STEP_CA_ADDRESS` (default `:${STEP_CA_PORT}`)
+- `STEP_CA_ADDRESS` (default `:9000`, must use internal port `9000`)
 - `STEPPATH` (default `/home/step/.step`)
 
 Common runtime defaults:
@@ -38,6 +37,7 @@ Common runtime defaults:
 podman run \
   --rm -it --pull=never \
   --security-opt label=disable \
+  -p 9443:9000 \
   --add-host ca.example.local:127.0.0.1 \
   --add-host ca.internal.local:127.0.0.1 \
   -e STEP_CA_NAME="Test CA" \

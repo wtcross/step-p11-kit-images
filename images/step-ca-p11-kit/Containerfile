@@ -51,8 +51,6 @@ RUN curl -sSfL -O "https://github.com/smallstep/certificates/releases/download/v
 FROM docker.io/debian:trixie-slim@${DEBIAN_TRIXIE_DIGEST} AS runtime
 
 ARG P11_KIT_VERSION
-ARG STEP_CA_PORT=9000
-ENV STEP_CA_PORT=${STEP_CA_PORT}
 
 ENV STEPPATH=/home/step/.step
 ENV DEBIAN_FRONTEND=noninteractive
@@ -75,7 +73,7 @@ RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/share/step-p11-kit/*.sh
 
 USER step
 WORKDIR /home/step
-EXPOSE ${STEP_CA_PORT}
+EXPOSE 9000
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/local/bin/step-ca"]

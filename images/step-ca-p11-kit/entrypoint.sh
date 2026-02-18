@@ -19,15 +19,15 @@ CA_CONFIG_FILE="${STEPPATH}/config/ca.json"
 DEFAULTS_CONFIG_FILE="${STEPPATH}/config/defaults.json"
 HSM_PIN_FILE_PATH="${STEP_HSM_PIN_FILE_PATH}"
 
-STEP_CA_PORT="${STEP_CA_PORT:-9000}"
-STEP_CA_ADDRESS="${STEP_CA_ADDRESS:-:${STEP_CA_PORT}}"
+STEP_CA_INTERNAL_PORT="9000"
+STEP_CA_ADDRESS="${STEP_CA_ADDRESS:-:${STEP_CA_INTERNAL_PORT}}"
 
 function infer_step_ca_port {
   local address="${1:?address is required}"
   if [[ "${address}" =~ :([0-9]+)$ ]]; then
     echo "${BASH_REMATCH[1]}"
   else
-    echo "${STEP_CA_PORT}"
+    echo "${STEP_CA_INTERNAL_PORT}"
   fi
 }
 
@@ -77,6 +77,11 @@ require_file "${STEP_ADMIN_PASSWORD_FILE}"
 require_file "${STEP_ROOT_CERT_FILE}"
 require_file "${STEP_INTERMEDIATE_CERT_FILE}"
 
+EFFECTIVE_PORT="$(infer_step_ca_port "${STEP_CA_ADDRESS}")"
+if [[ "${EFFECTIVE_PORT}" != "${STEP_CA_INTERNAL_PORT}" ]]; then
+  die "STEP_CA_ADDRESS must use internal port ${STEP_CA_INTERNAL_PORT} (received: ${STEP_CA_ADDRESS})"
+fi
+
 if [[ ! -f "${CA_CONFIG_FILE}" ]]; then
   log_info "step-ca-entrypoint" "Initializing CA configuration..."
 
@@ -120,7 +125,6 @@ if [[ ! -f "${CA_CONFIG_FILE}" ]]; then
 EOF_JSON
 
   FINGERPRINT="$(step certificate fingerprint "${STEP_ROOT_CERT_FILE}")"
-  EFFECTIVE_PORT="$(infer_step_ca_port "${STEP_CA_ADDRESS}")"
 
   cat > "${DEFAULTS_CONFIG_FILE}" <<EOF_JSON
 {

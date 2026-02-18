@@ -23,6 +23,7 @@ STEP_CA_ROOT_TOKEN_LABEL="${STEP_CA_ROOT_TOKEN_LABEL:-RootCA}"
 STEP_CA_INTERMEDIATE_TOKEN_LABEL="${STEP_CA_INTERMEDIATE_TOKEN_LABEL:-IntermediateCA}"
 STEP_CA_NAME="${STEP_CA_NAME:-Test CA}"
 STEP_CA_DNS_NAMES="${STEP_CA_DNS_NAMES:-ca.example.local,ca.internal.local}"
+STEP_CA_EXTERNAL_PORT="${STEP_CA_EXTERNAL_PORT:-9000}"
 
 STEP_HSM_PIN="${STEP_HSM_PIN:-123456}"
 STEP_CA_ADMIN_PASSWORD="${STEP_CA_ADMIN_PASSWORD:-admin-password}"
@@ -44,6 +45,8 @@ Options:
   --softhsm-image IMAGE       softhsm image reference to preload
   --step-test-init-image IMAGE
                               test-init image reference
+  --step-ca-external-port PORT
+                              host port to publish to container port 9000
   --help                      Show this help message
 USAGE
 }
@@ -58,6 +61,7 @@ while [[ $# -gt 0 ]]; do
     --step-ca-image) STEP_CA_IMAGE="$2"; shift 2 ;;
     --softhsm-image) SOFTHSM_IMAGE="$2"; shift 2 ;;
     --step-test-init-image) STEP_TEST_INIT_IMAGE="$2"; shift 2 ;;
+    --step-ca-external-port) STEP_CA_EXTERNAL_PORT="$2"; shift 2 ;;
     --help) usage; exit 0 ;;
     --) shift; EXTRA_ARGS+=("$@"); break ;;
     *) EXTRA_ARGS+=("$1"); shift 1 ;;
@@ -113,6 +117,7 @@ exec podman run \
   -e STEP_ADMIN_PASSWORD_FILE=/run/secrets/admin-password \
   -e STEP_CA_NAME="${STEP_CA_NAME}" \
   -e STEP_CA_DNS_NAMES="${STEP_CA_DNS_NAMES}" \
+  -e STEP_CA_EXTERNAL_PORT="${STEP_CA_EXTERNAL_PORT}" \
   -e STEP_CA_IMAGE="${STEP_CA_IMAGE}" \
   -e SOFTHSM_IMAGE="${SOFTHSM_IMAGE}" \
   -e STEP_TEST_INIT_IMAGE="${STEP_TEST_INIT_IMAGE}" \

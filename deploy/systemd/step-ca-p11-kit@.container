@@ -6,7 +6,7 @@ After=p11-kit-server@%i.target
 
 [Service]
 Restart=always
-ExecStartPre=/usr/bin/cosign verify \
+ExecStartPre=/usr/local/bin/cosign verify \
   --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
   --certificate-identity-regexp=^https://github[.]com/wtcross/step-p11-kit-images/[.]github/workflows/sign[.]yml@refs/heads/main$ \
   ghcr.io/wtcross/step-ca-p11-kit:latest

@@ -21,6 +21,8 @@ RUN apt-get update \
         uidmap \
     && rm -rf /var/lib/apt/lists/*
 
+RUN ln -sf /usr/bin/cosign /usr/local/bin/cosign
+
 RUN useradd -m -u 1001 -s /bin/bash step
 
 COPY images/step-ca-p11-kit-systemd-testing/init-softhsm.sh /usr/local/bin/init-softhsm.sh

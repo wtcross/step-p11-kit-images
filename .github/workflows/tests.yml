@@ -24,8 +24,8 @@ jobs:
       - name: Run unit and functional tests
         run: make test
 
-      # - name: Run systemd unit test
-      #   run: make run-systemd-testing
+      - name: Run systemd unit test
+        run: make run-systemd-testing
 
       - name: Upload test logs
         if: always()

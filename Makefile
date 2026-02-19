@@ -76,8 +76,7 @@ test-unit: build-all
 	@mkdir -p $(UNIT_TEST_LOGS_PATH)
 	@bash -c 'set -euo pipefail; \
 		command -v "$(BATS)" >/dev/null 2>&1 || { echo "bats is required"; exit 1; }; \
-		shopt -s nullglob; \
-		suites=(tests/unit/common/*.bats); \
+		mapfile -t suites < <(find tests/unit -type f -name "*.bats" | sort); \
 		[ $${#suites[@]} -gt 0 ] || { echo "No unit test suites found"; exit 1; }; \
 		for suite in "$${suites[@]}"; do \
 			name="$$(basename "$$suite" .bats)"; \

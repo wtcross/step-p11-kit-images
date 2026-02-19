@@ -33,6 +33,8 @@ Install these files in your user config:
 This writes:
 - `%h/.config/p11-kit-server/prod.env`
 - `%h/.config/step-ca/prod.env`
+- `%h/.config/containers/systemd/step-ca-p11-kit@prod.container`
+  (symlink to `step-ca-p11-kit@.container`)
 - `%h/.config/containers/systemd/step-ca-p11-kit@prod.container.d/10-publish-port.conf`
 
 2. Create required Podman secrets for the instance:
@@ -62,4 +64,5 @@ systemctl --user enable --now step-ca-p11-kit@prod.target
   - `/run/secrets/ca.crt`
 - `step-ca-p11-kit@.container` uses `Pull=always` by default; use systemd drop-ins if you need different pull behavior.
 - `step-ca-p11-kit@.container` runs `cosign verify` in `ExecStartPre` before startup; install `cosign` on the host and update both `Image=` and `ExecStartPre=` together when overriding the image reference.
-- `scripts/generate-instance-env.sh` writes a per-instance drop-in with `PublishPort=<external>:9000` so the container always listens on internal port `9000` while the host port remains configurable.
+- `scripts/generate-instance-env.sh` creates `%h/.config/containers/systemd/step-ca-p11-kit@<instance>.container` as a symlink to the template `step-ca-p11-kit@.container`.
+- `scripts/generate-instance-env.sh` writes `%h/.config/containers/systemd/step-ca-p11-kit@<instance>.container.d/10-publish-port.conf` with `PublishPort=<external>:9000` so the container always listens on internal port `9000` while the host port remains configurable.

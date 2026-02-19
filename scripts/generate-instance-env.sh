@@ -19,6 +19,10 @@ usage() {
 Usage: generate-instance-env.sh [OPTIONS]
 
 Generate per-instance env files for p11-kit-server and step-ca.
+Also prepares per-instance Quadlet artifacts:
+  - %h/.config/containers/systemd/step-ca-p11-kit@<instance>.container
+    (symlink to step-ca-p11-kit@.container)
+  - %h/.config/containers/systemd/step-ca-p11-kit@<instance>.container.d/10-publish-port.conf
 
 Required:
   --instance NAME                   Instance name (e.g., prod)
@@ -102,10 +106,13 @@ P11_DIR="${HOME}/.config/p11-kit-server"
 CA_DIR="${HOME}/.config/step-ca"
 P11_FILE="${P11_DIR}/${INSTANCE}.env"
 CA_FILE="${CA_DIR}/${INSTANCE}.env"
-CONTAINER_DROPIN_DIR="${HOME}/.config/containers/systemd/step-ca-p11-kit@${INSTANCE}.container.d"
+CONTAINER_UNIT_DIR="${HOME}/.config/containers/systemd"
+CONTAINER_INSTANCE_SOURCE="${CONTAINER_UNIT_DIR}/step-ca-p11-kit@${INSTANCE}.container"
+CONTAINER_DROPIN_DIR="${CONTAINER_UNIT_DIR}/step-ca-p11-kit@${INSTANCE}.container.d"
 CONTAINER_DROPIN_FILE="${CONTAINER_DROPIN_DIR}/10-publish-port.conf"
 
-mkdir -p "${P11_DIR}" "${CA_DIR}" "${CONTAINER_DROPIN_DIR}"
+mkdir -p "${P11_DIR}" "${CA_DIR}" "${CONTAINER_UNIT_DIR}" "${CONTAINER_DROPIN_DIR}"
+ln -sfn "step-ca-p11-kit@.container" "${CONTAINER_INSTANCE_SOURCE}"
 
 if [[ -f "${P11_FILE}" && "${FORCE}" != "true" ]]; then
   die "Refusing to overwrite ${P11_FILE} (use --force)"
@@ -143,6 +150,11 @@ cat > "${CONTAINER_DROPIN_FILE}" <<EOF_ENV
 PublishPort=${EXTERNAL_PORT}:9000
 EOF_ENV
 
+chmod 0755 "${CONTAINER_DROPIN_DIR}"
+chmod 0644 "${CONTAINER_DROPIN_FILE}"
+chown "$(id -u):$(id -g)" "${CONTAINER_DROPIN_DIR}" "${CONTAINER_DROPIN_FILE}"
+
 log_info "generate-instance-env" "Wrote: ${P11_FILE}"
 log_info "generate-instance-env" "Wrote: ${CA_FILE}"
+log_info "generate-instance-env" "Wrote: ${CONTAINER_INSTANCE_SOURCE} -> step-ca-p11-kit@.container"
 log_info "generate-instance-env" "Wrote: ${CONTAINER_DROPIN_FILE}"

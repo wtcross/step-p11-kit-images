@@ -61,10 +61,9 @@ function parse_dns_names_or_die {
 require_env STEP_CA_NAME
 require_env STEP_CA_DNS_NAMES
 require_env STEP_CA_PRIVATE_KEY_PKCS11_URI
-require_env STEP_CA_KMS_PKCS11_URI
 require_env STEP_ADMIN_PASSWORD_FILE
-require_env STEP_ROOT_CERT_FILE
-require_env STEP_INTERMEDIATE_CERT_FILE
+require_env ROOT_CA_CERT_FILE
+require_env STEP_CA_CERT_FILE
 
 STEP_CA_ADMIN_SUBJECT="${STEP_CA_ADMIN_SUBJECT:-step}"
 STEP_CA_ADMIN_PROVISIONER_NAME="${STEP_CA_ADMIN_PROVISIONER_NAME:-admin}"
@@ -74,8 +73,12 @@ require_dir "${P11_KIT_SOCKET_DIR}"
 require_file "${HSM_PIN_FILE_PATH}"
 require_socket "${P11_KIT_SOCKET_PATH}"
 require_file "${STEP_ADMIN_PASSWORD_FILE}"
-require_file "${STEP_ROOT_CERT_FILE}"
-require_file "${STEP_INTERMEDIATE_CERT_FILE}"
+require_file "${ROOT_CA_CERT_FILE}"
+require_file "${STEP_CA_CERT_FILE}"
+
+if ! STEP_CA_KMS_URI="$(pkcs11_derive_kms_uri_from_private_key_uri "${STEP_CA_PRIVATE_KEY_PKCS11_URI}")"; then
+  die "Failed to derive internal KMS URI from STEP_CA_PRIVATE_KEY_PKCS11_URI"
+fi
 
 EFFECTIVE_PORT="$(infer_step_ca_port "${STEP_CA_ADDRESS}")"
 if [[ "${EFFECTIVE_PORT}" != "${STEP_CA_INTERNAL_PORT}" ]]; then
@@ -92,12 +95,12 @@ if [[ ! -f "${CA_CONFIG_FILE}" ]]; then
 
   cat > "${CA_CONFIG_FILE}" <<EOF_JSON
 {
-  "root": "${STEP_ROOT_CERT_FILE}",
-  "crt": "${STEP_INTERMEDIATE_CERT_FILE}",
+  "root": "${ROOT_CA_CERT_FILE}",
+  "crt": "${STEP_CA_CERT_FILE}",
   "key": "${STEP_CA_PRIVATE_KEY_PKCS11_URI}",
   "kms": {
     "type": "pkcs11",
-    "uri": "${STEP_CA_KMS_PKCS11_URI}"
+    "uri": "${STEP_CA_KMS_URI}"
   },
   "address": "${STEP_CA_ADDRESS}",
   "dnsNames": ${DNS_JSON},
@@ -124,14 +127,14 @@ if [[ ! -f "${CA_CONFIG_FILE}" ]]; then
 }
 EOF_JSON
 
-  FINGERPRINT="$(step certificate fingerprint "${STEP_ROOT_CERT_FILE}")"
+  FINGERPRINT="$(step certificate fingerprint "${ROOT_CA_CERT_FILE}")"
 
   cat > "${DEFAULTS_CONFIG_FILE}" <<EOF_JSON
 {
   "ca-url": "https://${DNS_ARRAY[0]}:${EFFECTIVE_PORT}",
   "ca-config": "${STEPPATH}/config/ca.json",
   "fingerprint": "${FINGERPRINT}",
-  "root": "${STEP_ROOT_CERT_FILE}"
+  "root": "${ROOT_CA_CERT_FILE}"
 }
 EOF_JSON
 

@@ -35,7 +35,7 @@ teardown_file() {
   run podman exec "${STEP_CA_CONTAINER}" \
     step ca health \
       --ca-url "https://${health_dns_name}:9000" \
-      --root "/home/step/.step/certs/${STEP_CA_ROOT_CERT_NAME}"
+      --root "/home/step/.step/certs/${ROOT_CA_CERT_NAME}"
   assert_status_eq 0
   assert_output_contains "ok"
 }
@@ -46,4 +46,13 @@ teardown_file() {
 
   run grep -F '"ca.internal.local"' "${STEP_TEST_TMPDIR}/step/config/ca.json"
   assert_status_eq 0
+}
+
+@test "step-ca config contains derived KMS URI" {
+  local expected_kms_uri
+  expected_kms_uri="pkcs11:token=${STEP_CA_TOKEN_LABEL}?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
+
+  run jq -r '.kms.uri' "${STEP_TEST_TMPDIR}/step/config/ca.json"
+  assert_status_eq 0
+  assert_output_contains "${expected_kms_uri}"
 }

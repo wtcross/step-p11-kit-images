@@ -13,8 +13,8 @@ export STEP_HSM_PIN_FILE_PATH="${STEP_HSM_PIN_FILE_PATH:-/run/secrets/hsm-pin}"
 export HSM_PIN_FILE_PATH="${STEP_HSM_PIN_FILE_PATH}"
 export STEP_SYSTEMD_INSTANCE="${STEP_SYSTEMD_INSTANCE:-test}"
 
-require_env STEP_CA_ROOT_PKCS11_TOKEN_LABEL
-require_env STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL
+require_env ROOT_CA_PKCS11_TOKEN_LABEL
+require_env STEP_CA_PKCS11_TOKEN_LABEL
 require_file "${STEP_HSM_PIN_FILE_PATH}"
 require_command dbus-run-session
 

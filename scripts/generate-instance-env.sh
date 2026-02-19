@@ -30,11 +30,10 @@ Optional (step-ca):
   --admin-subject NAME              STEP_CA_ADMIN_SUBJECT (default step)
   --provisioner NAME                STEP_CA_ADMIN_PROVISIONER_NAME (default admin)
   --steppath PATH                   STEPPATH (default /home/step/.step)
-  --root-cert PATH                  STEP_ROOT_CERT_FILE (default /run/secrets/root.crt)
-  --intermediate-cert PATH          STEP_INTERMEDIATE_CERT_FILE (default /run/secrets/intermediate.crt)
+  --root-cert PATH                  ROOT_CA_CERT_FILE (default /run/secrets/root.crt)
+  --cert PATH          STEP_CA_CERT_FILE (default /run/secrets/ca.crt)
   --admin-password PATH             STEP_ADMIN_PASSWORD_FILE (default /run/secrets/admin-password)
   --private-key-pkcs11-uri URI      STEP_CA_PRIVATE_KEY_PKCS11_URI value
-  --kms-pkcs11-uri URI              STEP_CA_KMS_PKCS11_URI value
   Note: this script writes file paths under /run/secrets/*, but secret files
   are provided at runtime by quadlet Secret= mounts (not created here).
 
@@ -56,11 +55,10 @@ EXTERNAL_PORT="9000"
 ADMIN_SUBJECT="step"
 PROVISIONER_NAME="admin"
 STEPPATH="/home/step/.step"
-ROOT_CERT="/run/secrets/root.crt"
-INTERMEDIATE_CERT="/run/secrets/intermediate.crt"
+ROOT_CA_CERT="/run/secrets/root.crt"
+STEP_CA_CERT="/run/secrets/ca.crt"
 ADMIN_PASSWORD="/run/secrets/admin-password"
 PRIVATE_KEY_PKCS11_URI=""
-KMS_PKCS11_URI=""
 HSM_MODULE="/usr/lib/x86_64-linux-gnu/pkcs11/opensc-pkcs11.so"
 HSM_URI=""
 FORCE="false"
@@ -85,11 +83,10 @@ while [[ $# -gt 0 ]]; do
     --admin-subject) ADMIN_SUBJECT="$2"; shift 2 ;;
     --provisioner) PROVISIONER_NAME="$2"; shift 2 ;;
     --steppath) STEPPATH="$2"; shift 2 ;;
-    --root-cert) ROOT_CERT="$2"; shift 2 ;;
-    --intermediate-cert) INTERMEDIATE_CERT="$2"; shift 2 ;;
+    --root-cert) ROOT_CA_CERT="$2"; shift 2 ;;
+    --cert) STEP_CA_CERT="$2"; shift 2 ;;
     --admin-password) ADMIN_PASSWORD="$2"; shift 2 ;;
     --private-key-pkcs11-uri) PRIVATE_KEY_PKCS11_URI="$2"; shift 2 ;;
-    --kms-pkcs11-uri) KMS_PKCS11_URI="$2"; shift 2 ;;
     --hsm-module) HSM_MODULE="$2"; shift 2 ;;
     --hsm-uri) HSM_URI="$2"; shift 2 ;;
     --force) FORCE="true"; shift 1 ;;
@@ -131,11 +128,10 @@ cat > "${CA_FILE}" <<EOF_ENV
 STEP_CA_NAME=${CA_NAME}
 STEP_CA_DNS_NAMES=${DNS_NAMES}
 STEP_CA_PRIVATE_KEY_PKCS11_URI=${PRIVATE_KEY_PKCS11_URI}
-STEP_CA_KMS_PKCS11_URI=${KMS_PKCS11_URI}
 STEP_ADMIN_PASSWORD_FILE=${ADMIN_PASSWORD}
 STEP_CA_ADDRESS=${INTERNAL_ADDRESS}
-STEP_INTERMEDIATE_CERT_FILE=${INTERMEDIATE_CERT}
-STEP_ROOT_CERT_FILE=${ROOT_CERT}
+STEP_CA_CERT_FILE=${STEP_CA_CERT}
+ROOT_CA_CERT_FILE=${ROOT_CA_CERT}
 STEP_CA_ADMIN_SUBJECT=${ADMIN_SUBJECT}
 STEP_CA_ADMIN_PROVISIONER_NAME=${PROVISIONER_NAME}
 STEPPATH=${STEPPATH}

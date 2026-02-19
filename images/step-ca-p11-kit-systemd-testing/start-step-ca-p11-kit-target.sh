@@ -20,8 +20,8 @@ STEP_TEST_INIT_IMAGE="${STEP_TEST_INIT_IMAGE:-ghcr.io/wtcross/step-ca-p11-kit-te
 STEP_CA_NAME="${STEP_CA_NAME:-Test CA}"
 STEP_CA_DNS_NAMES="${STEP_CA_DNS_NAMES:-ca.example.local,ca.internal.local}"
 STEP_CA_EXTERNAL_PORT="${STEP_CA_EXTERNAL_PORT:-9000}"
-STEP_CA_ROOT_CERT_NAME="${STEP_CA_ROOT_CERT_NAME:-root.crt}"
-STEP_CA_INTERMEDIATE_CERT_NAME="${STEP_CA_INTERMEDIATE_CERT_NAME:-intermediate.crt}"
+ROOT_CA_CERT_NAME="${ROOT_CA_CERT_NAME:-root.crt}"
+STEP_CA_CERT_NAME="${STEP_CA_CERT_NAME:-ca.crt}"
 STEP_HSM_PIN_FILE_PATH="${STEP_HSM_PIN_FILE_PATH:-/run/secrets/hsm-pin}"
 STEP_ADMIN_PASSWORD_FILE="${STEP_ADMIN_PASSWORD_FILE:-/run/secrets/admin-password}"
 STEP_P11KIT_CLIENT_MODULE_PATH="${STEP_P11KIT_CLIENT_MODULE_PATH:-/usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-client.so}"
@@ -31,16 +31,15 @@ SYSTEMD_UNIT_DIR="${HOME}/.config/containers/systemd"
 STEP_CA_CONTAINER_UNIT="${SYSTEMD_UNIT_DIR}/step-ca-p11-kit@.container"
 STEP_CA_CONTAINER_NAME="${STEP_CA_CONTAINER_NAME:-step-ca-${INSTANCE}}"
 STEP_CA_HEALTH_URL="${STEP_CA_HEALTH_URL:-}"
-STEP_CA_HEALTH_ROOT_CERT_PATH="${STEP_CA_HEALTH_ROOT_CERT_PATH:-/run/secrets/root.crt}"
+STEP_CA_HEALTH_ROOT_CA_CERT_PATH="${STEP_CA_HEALTH_ROOT_CA_CERT_PATH:-/run/secrets/root.crt}"
 STEP_CA_HEALTH_RETRIES="${STEP_CA_HEALTH_RETRIES:-30}"
 STEP_CA_HEALTH_RETRY_INTERVAL_SECONDS="${STEP_CA_HEALTH_RETRY_INTERVAL_SECONDS:-1}"
 STEP_SYSTEMD_WAIT_FOR_SHUTDOWN="${STEP_SYSTEMD_WAIT_FOR_SHUTDOWN:-false}"
 STEP_SYSTEMD_RESET_STEPPATH_ON_START="${STEP_SYSTEMD_RESET_STEPPATH_ON_START:-true}"
 STEP_SYSTEMD_SHUTDOWN_ON_EXIT="${STEP_SYSTEMD_SHUTDOWN_ON_EXIT:-true}"
 
-ROOT_PRIVATE_URI=""
-INT_PRIVATE_URI=""
-INT_KMS_URI=""
+ROOT_CA_PRIVATE_URI=""
+STEP_CA_PRIVATE_URI=""
 
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
@@ -165,9 +164,8 @@ function configure_step_ca_container_unit {
 function build_pkcs11_uris {
   local pin_path="/run/secrets/hsm-pin"
 
-  ROOT_PRIVATE_URI="$(pkcs11_build_private_key_uri "${STEP_CA_ROOT_PKCS11_TOKEN_LABEL}" "01" "root" "${pin_path}" "${STEP_P11KIT_CLIENT_MODULE_PATH}")"
-  INT_PRIVATE_URI="$(pkcs11_build_private_key_uri "${STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL}" "01" "intermediate" "${pin_path}" "${STEP_P11KIT_CLIENT_MODULE_PATH}")"
-  INT_KMS_URI="$(pkcs11_build_kms_uri "${STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL}" "${pin_path}" "${STEP_P11KIT_CLIENT_MODULE_PATH}")"
+  ROOT_CA_PRIVATE_URI="$(pkcs11_build_private_key_uri "${ROOT_CA_PKCS11_TOKEN_LABEL}" "01" "root" "${pin_path}" "${STEP_P11KIT_CLIENT_MODULE_PATH}")"
+  STEP_CA_PRIVATE_URI="$(pkcs11_build_private_key_uri "${STEP_CA_PKCS11_TOKEN_LABEL}" "01" "issuing" "${pin_path}" "${STEP_P11KIT_CLIENT_MODULE_PATH}")"
 }
 
 function generate_instance_env_files {
@@ -178,8 +176,7 @@ function generate_instance_env_files {
     --ca-name "${STEP_CA_NAME}" \
     --dns "${STEP_CA_DNS_NAMES}" \
     --external-port "${STEP_CA_EXTERNAL_PORT}" \
-    --private-key-pkcs11-uri "${INT_PRIVATE_URI}" \
-    --kms-pkcs11-uri "${INT_KMS_URI}" \
+    --private-key-pkcs11-uri "${STEP_CA_PRIVATE_URI}" \
     --hsm-module "${SOFTHSM_LIB_PATH}" \
     --hsm-uri "${hsm_uri}" \
     --force
@@ -216,10 +213,10 @@ function run_ca_init_container {
     -e STEP_CA_DNS_NAMES="${STEP_CA_DNS_NAMES}" \
     -e STEP_HSM_PIN_FILE_PATH=/run/secrets/hsm-pin \
     -e STEP_P11KIT_SOCKET_PATH="/run/p11-kit/${INSTANCE}.sock" \
-    -e STEP_CA_ROOT_PRIVATE_KEY_PKCS11_URI="${ROOT_PRIVATE_URI}" \
-    -e STEP_CA_ROOT_CERT_NAME="${STEP_CA_ROOT_CERT_NAME}" \
-    -e STEP_CA_INT_PRIVATE_KEY_PKCS11_URI="${INT_PRIVATE_URI}" \
-    -e STEP_CA_INT_CERT_NAME="${STEP_CA_INTERMEDIATE_CERT_NAME}" \
+    -e ROOT_CA_PRIVATE_KEY_PKCS11_URI="${ROOT_CA_PRIVATE_URI}" \
+    -e ROOT_CA_CERT_NAME="${ROOT_CA_CERT_NAME}" \
+    -e STEP_CA_PRIVATE_KEY_PKCS11_URI="${STEP_CA_PRIVATE_URI}" \
+    -e STEP_CA_CERT_NAME="${STEP_CA_CERT_NAME}" \
     -v "${socket_mount}:/run/p11-kit:z" \
     -v "${STEP_HSM_PIN_FILE_PATH}:/run/secrets/hsm-pin:ro,z" \
     -v "${STEPPATH}:/home/step/.step:z" \
@@ -236,13 +233,13 @@ function replace_secret {
 }
 
 function create_runtime_secrets {
-  local root_cert_path="${STEPPATH}/certs/${STEP_CA_ROOT_CERT_NAME}"
-  local intermediate_cert_path="${STEPPATH}/certs/${STEP_CA_INTERMEDIATE_CERT_NAME}"
+  local root_cert_path="${STEPPATH}/certs/${ROOT_CA_CERT_NAME}"
+  local cert_path="${STEPPATH}/certs/${STEP_CA_CERT_NAME}"
 
   replace_secret "hsm-pin-${INSTANCE}" "${STEP_HSM_PIN_FILE_PATH}"
   replace_secret "admin-password-${INSTANCE}" "${STEP_ADMIN_PASSWORD_FILE}"
   replace_secret "root-cert-${INSTANCE}" "${root_cert_path}"
-  replace_secret "intermediate-cert-${INSTANCE}" "${intermediate_cert_path}"
+  replace_secret "cert-${INSTANCE}" "${cert_path}"
 }
 
 function start_step_ca_target {
@@ -259,7 +256,7 @@ function run_step_ca_health_check {
     "${STEP_CA_CONTAINER_NAME}"
     step ca health
     --ca-url "${health_url}"
-    --root "${STEP_CA_HEALTH_ROOT_CERT_PATH}"
+    --root "${STEP_CA_HEALTH_ROOT_CA_CERT_PATH}"
   )
 
   for ((attempt = 1; attempt <= STEP_CA_HEALTH_RETRIES; attempt++)); do
@@ -308,8 +305,8 @@ function cleanup {
 
 trap 'cleanup $?' EXIT
 
-require_env STEP_CA_ROOT_PKCS11_TOKEN_LABEL
-require_env STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL
+require_env ROOT_CA_PKCS11_TOKEN_LABEL
+require_env STEP_CA_PKCS11_TOKEN_LABEL
 validate_port_or_die "${STEP_CA_EXTERNAL_PORT}"
 require_file "${STEP_HSM_PIN_FILE_PATH}"
 require_file "${STEP_ADMIN_PASSWORD_FILE}"

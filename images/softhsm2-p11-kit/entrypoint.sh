@@ -12,8 +12,8 @@ export STEP_P11KIT_SOCKET_PATH="${STEP_P11KIT_SOCKET_PATH:-${P11_KIT_SOCKET:-/ru
 export P11_KIT_SOCKET="${STEP_P11KIT_SOCKET_PATH}"
 export HSM_PIN_FILE_PATH="${STEP_HSM_PIN_FILE_PATH}"
 
-require_env STEP_CA_ROOT_PKCS11_TOKEN_LABEL
-require_env STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL
+require_env ROOT_CA_PKCS11_TOKEN_LABEL
+require_env STEP_CA_PKCS11_TOKEN_LABEL
 
 /usr/local/bin/init-softhsm.sh
 exec /usr/local/bin/start-p11-kit-server.sh

@@ -5,8 +5,8 @@ Runs a `p11-kit server` exposing a PKCS#11 socket for use in testing other image
 ## Environment Variables
 
 Required:
-- `STEP_CA_ROOT_PKCS11_TOKEN_LABEL`: PKCS#11 token label of the slot to use for the root CA
-- `STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL`: PKCS#11 token label of the slot to use for the intermediate CA
+- `ROOT_CA_PKCS11_TOKEN_LABEL`: PKCS#11 token label of the slot to use for the root CA
+- `STEP_CA_PKCS11_TOKEN_LABEL`: PKCS#11 token label of the slot to use for the step-ca instance
 
 Optional:
 - `STEP_HSM_PIN_FILE_PATH` (default `/run/secrets/hsm-pin`)
@@ -31,8 +31,8 @@ podman run \
   --security-opt label=disable \
   -e STEP_HSM_PIN_FILE_PATH="/run/secrets/hsm-pin" \
   -e STEP_P11KIT_SOCKET_PATH="/run/p11-kit/pkcs11-socket" \
-  -e STEP_CA_ROOT_PKCS11_TOKEN_LABEL="RootCA" \
-  -e STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL="IntermediateCA" \
+  -e ROOT_CA_PKCS11_TOKEN_LABEL="RootCA" \
+  -e STEP_CA_PKCS11_TOKEN_LABEL="IssuingCA" \
   -v ./secrets:/run/secrets:ro,z \
   -v ./p11-kit:/run/p11-kit:z \
   ghcr.io/wtcross/softhsm2-p11-kit:latest

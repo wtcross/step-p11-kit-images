@@ -39,7 +39,7 @@ Volume=%t/p11-kit:/run/p11-kit
 Secret=hsm-pin-%i,type=mount,target=/run/secrets/hsm-pin
 Secret=admin-password-%i,type=mount,target=/run/secrets/admin-password
 Secret=root-cert-%i,type=mount,target=/run/secrets/root.crt
-Secret=intermediate-cert-%i,type=mount,target=/run/secrets/intermediate.crt
+Secret=cert-%i,type=mount,target=/run/secrets/ca.crt
 
 Environment=STEPPATH=/home/step/.step
 Environment=STEP_P11KIT_SOCKET_PATH=/run/p11-kit/%i.sock

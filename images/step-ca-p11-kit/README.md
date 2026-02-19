@@ -6,12 +6,11 @@ includes `step-cli` (`step`).
 ## Environment Variables
 
 Required:
+- `ROOT_CA_CERT_FILE`: path to the root certificate file
 - `STEP_CA_NAME`: The name of the PKI
 - `STEP_CA_DNS_NAMES`: Comma-separated list of DNS names for the CA
 - `STEP_CA_PRIVATE_KEY_PKCS11_URI`: full PKCS#11 URI for the CA private key
-- `STEP_CA_KMS_PKCS11_URI`: full PKCS#11 URI for KMS operations
-- `STEP_ROOT_CERT_FILE`: path to the root certificate file
-- `STEP_INTERMEDIATE_CERT_FILE`: path to the intermediate certificate file
+- `STEP_CA_CERT_FILE`: path to the certificate file used by the step-ca instance
 - `STEP_ADMIN_PASSWORD_FILE`: path to the admin password file
 
 Optional:
@@ -44,10 +43,9 @@ podman run \
   -e STEP_CA_DNS_NAMES="ca.example.local,ca.internal.local" \
   -e STEP_HSM_PIN_FILE_PATH="/run/secrets/hsm-pin" \
   -e STEP_P11KIT_SOCKET_PATH="/run/p11-kit/pkcs11-socket" \
-  -e STEP_CA_PRIVATE_KEY_PKCS11_URI="pkcs11:token=IntermediateCA;id=%01;object=intermediate;type=private?module-path=/usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-client.so&pin-source=file:///run/secrets/hsm-pin" \
-  -e STEP_CA_KMS_PKCS11_URI="pkcs11:token=IntermediateCA?module-path=/usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-client.so&pin-source=file:///run/secrets/hsm-pin" \
-  -e STEP_ROOT_CERT_FILE="/home/step/.step/certs/root.crt" \
-  -e STEP_INTERMEDIATE_CERT_FILE="/home/step/.step/certs/intermediate.crt" \
+  -e STEP_CA_PRIVATE_KEY_PKCS11_URI="pkcs11:token=IssuingCA;id=%01;object=issuing;type=private?module-path=/usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-client.so&pin-source=file:///run/secrets/hsm-pin" \
+  -e ROOT_CA_CERT_FILE="/home/step/.step/certs/root.crt" \
+  -e STEP_CA_CERT_FILE="/home/step/.step/certs/ca.crt" \
   -e STEP_ADMIN_PASSWORD_FILE="/run/secrets/admin-password" \
   -v ./step:/home/step/.step:z \
   -v ./secrets:/run/secrets:ro,z \

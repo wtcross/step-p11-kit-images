@@ -32,3 +32,27 @@ load "$(dirname "$BATS_TEST_FILENAME")/../../helpers/assertions.bash"
   run bash -c "source '${BATS_TEST_DIRNAME}/../../../scripts/common/pkcs11.sh'; pkcs11_parse_uri_attr 'pkcs11:token=RootCA' module-path"
   assert_status_ne 0
 }
+
+@test "pkcs11_derive_kms_uri_from_private_key_uri returns kms uri" {
+  run bash -c "source '${BATS_TEST_DIRNAME}/../../../scripts/common/pkcs11.sh'; uri='pkcs11:token=IssuingCA;id=%01;object=issuing;type=private?module-path=/tmp/module.so&pin-source=file:///run/secrets/hsm-pin'; pkcs11_derive_kms_uri_from_private_key_uri \"\$uri\""
+  assert_status_eq 0
+  assert_output_contains "pkcs11:token=IssuingCA?module-path=/tmp/module.so&pin-source=file:///run/secrets/hsm-pin"
+}
+
+@test "pkcs11_derive_kms_uri_from_private_key_uri fails when token is missing" {
+  run bash -c "source '${BATS_TEST_DIRNAME}/../../../scripts/common/pkcs11.sh'; uri='pkcs11:id=%01;object=issuing;type=private?module-path=/tmp/module.so&pin-source=file:///run/secrets/hsm-pin'; pkcs11_derive_kms_uri_from_private_key_uri \"\$uri\""
+  assert_status_ne 0
+  assert_output_contains "required attribute 'token'"
+}
+
+@test "pkcs11_derive_kms_uri_from_private_key_uri fails when module-path is missing" {
+  run bash -c "source '${BATS_TEST_DIRNAME}/../../../scripts/common/pkcs11.sh'; uri='pkcs11:token=IssuingCA;id=%01;object=issuing;type=private?pin-source=file:///run/secrets/hsm-pin'; pkcs11_derive_kms_uri_from_private_key_uri \"\$uri\""
+  assert_status_ne 0
+  assert_output_contains "required attribute 'module-path'"
+}
+
+@test "pkcs11_derive_kms_uri_from_private_key_uri fails when pin-source is missing" {
+  run bash -c "source '${BATS_TEST_DIRNAME}/../../../scripts/common/pkcs11.sh'; uri='pkcs11:token=IssuingCA;id=%01;object=issuing;type=private?module-path=/tmp/module.so'; pkcs11_derive_kms_uri_from_private_key_uri \"\$uri\""
+  assert_status_ne 0
+  assert_output_contains "required attribute 'pin-source'"
+}

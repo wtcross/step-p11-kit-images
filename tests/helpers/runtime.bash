@@ -11,10 +11,10 @@ STEP_TEST_CONTEXT_DIR="${STEP_TEST_CONTEXT_DIR:-${STEP_TEST_TMP_ROOT}/contexts}"
 STEP_P11KIT_CLIENT_MODULE_PATH="${STEP_P11KIT_CLIENT_MODULE_PATH:-/usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-client.so}"
 STEP_CA_NAME="${STEP_CA_NAME:-Test CA}"
 STEP_CA_DNS_NAMES="${STEP_CA_DNS_NAMES:-ca.example.local,ca.internal.local}"
-STEP_CA_ROOT_TOKEN_LABEL="${STEP_CA_ROOT_TOKEN_LABEL:-RootCA}"
-STEP_CA_INTERMEDIATE_TOKEN_LABEL="${STEP_CA_INTERMEDIATE_TOKEN_LABEL:-IntermediateCA}"
-STEP_CA_ROOT_CERT_NAME="${STEP_CA_ROOT_CERT_NAME:-root.crt}"
-STEP_CA_INTERMEDIATE_CERT_NAME="${STEP_CA_INTERMEDIATE_CERT_NAME:-intermediate.crt}"
+ROOT_CA_TOKEN_LABEL="${ROOT_CA_TOKEN_LABEL:-RootCA}"
+STEP_CA_TOKEN_LABEL="${STEP_CA_TOKEN_LABEL:-IssuingCA}"
+ROOT_CA_CERT_NAME="${ROOT_CA_CERT_NAME:-root.crt}"
+STEP_CA_CERT_NAME="${STEP_CA_CERT_NAME:-ca.crt}"
 STEP_CA_ADMIN_PASSWORD="${STEP_CA_ADMIN_PASSWORD:-admin-password}"
 
 STEP_TEST_ID=""
@@ -176,7 +176,7 @@ wait_for_ca_health() {
 
   health_dns_name="$(step_ca_primary_dns_name)"
   health_url="https://${health_dns_name}:9000"
-  root_cert="/home/step/.step/certs/${STEP_CA_ROOT_CERT_NAME}"
+  root_cert="/home/step/.step/certs/${ROOT_CA_CERT_NAME}"
 
   while [[ "${elapsed}" -lt "${timeout_seconds}" ]]; do
     if health_output="$(podman exec "${container_name}" step ca health --ca-url "${health_url}" --root "${root_cert}" 2>/dev/null)"; then
@@ -198,8 +198,8 @@ start_softhsm2_p11_kit() {
   podman run -d --rm \
     --name "${STEP_SOFTHSM_CONTAINER}" \
     --pull=never \
-    -e STEP_CA_ROOT_PKCS11_TOKEN_LABEL="${STEP_CA_ROOT_TOKEN_LABEL}" \
-    -e STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL="${STEP_CA_INTERMEDIATE_TOKEN_LABEL}" \
+    -e ROOT_CA_PKCS11_TOKEN_LABEL="${ROOT_CA_TOKEN_LABEL}" \
+    -e STEP_CA_PKCS11_TOKEN_LABEL="${STEP_CA_TOKEN_LABEL}" \
     -e STEP_HSM_PIN_FILE_PATH=/run/secrets/hsm-pin \
     -e STEP_P11KIT_SOCKET_PATH=/run/p11-kit/pkcs11-socket \
     -v "${STEP_TEST_TMPDIR}/p11-kit:/run/p11-kit:z" \
@@ -214,8 +214,8 @@ run_step_ca_p11_kit_test_init() {
   local root_private_uri
   local int_private_uri
 
-  root_private_uri="pkcs11:token=${STEP_CA_ROOT_TOKEN_LABEL};id=%01;object=root;type=private?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
-  int_private_uri="pkcs11:token=${STEP_CA_INTERMEDIATE_TOKEN_LABEL};id=%01;object=intermediate;type=private?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
+  root_private_uri="pkcs11:token=${ROOT_CA_TOKEN_LABEL};id=%01;object=root;type=private?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
+  int_private_uri="pkcs11:token=${STEP_CA_TOKEN_LABEL};id=%01;object=issuing;type=private?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
 
   podman run --rm \
     --name "${STEP_INIT_CONTAINER}" \
@@ -224,10 +224,10 @@ run_step_ca_p11_kit_test_init() {
     -e STEP_CA_DNS_NAMES="${STEP_CA_DNS_NAMES}" \
     -e STEP_HSM_PIN_FILE_PATH=/run/secrets/hsm-pin \
     -e STEP_P11KIT_SOCKET_PATH=/run/p11-kit/pkcs11-socket \
-    -e STEP_CA_ROOT_PRIVATE_KEY_PKCS11_URI="${root_private_uri}" \
-    -e STEP_CA_ROOT_CERT_NAME="${STEP_CA_ROOT_CERT_NAME}" \
-    -e STEP_CA_INT_PRIVATE_KEY_PKCS11_URI="${int_private_uri}" \
-    -e STEP_CA_INT_CERT_NAME="${STEP_CA_INTERMEDIATE_CERT_NAME}" \
+    -e ROOT_CA_PRIVATE_KEY_PKCS11_URI="${root_private_uri}" \
+    -e ROOT_CA_CERT_NAME="${ROOT_CA_CERT_NAME}" \
+    -e STEP_CA_PRIVATE_KEY_PKCS11_URI="${int_private_uri}" \
+    -e STEP_CA_CERT_NAME="${STEP_CA_CERT_NAME}" \
     -v "${STEP_TEST_TMPDIR}/p11-kit:/run/p11-kit:z" \
     -v "${STEP_TEST_TMPDIR}/secrets:/run/secrets:z" \
     -v "${STEP_TEST_TMPDIR}/step:/home/step/.step:z" \
@@ -237,13 +237,11 @@ run_step_ca_p11_kit_test_init() {
 
 start_step_ca_p11_kit() {
   local ca_private_uri
-  local ca_kms_uri
   local -a raw_dns_names=()
   local -a add_host_args=()
   local dns_name=""
 
-  ca_private_uri="pkcs11:token=${STEP_CA_INTERMEDIATE_TOKEN_LABEL};id=%01;object=intermediate;type=private?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
-  ca_kms_uri="pkcs11:token=${STEP_CA_INTERMEDIATE_TOKEN_LABEL}?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
+  ca_private_uri="pkcs11:token=${STEP_CA_TOKEN_LABEL};id=%01;object=issuing;type=private?module-path=${STEP_P11KIT_CLIENT_MODULE_PATH}&pin-source=file:///run/secrets/hsm-pin"
 
   IFS=',' read -r -a raw_dns_names <<< "${STEP_CA_DNS_NAMES}"
   for raw_dns in "${raw_dns_names[@]}"; do
@@ -262,10 +260,9 @@ start_step_ca_p11_kit() {
     -e STEP_HSM_PIN_FILE_PATH=/run/secrets/hsm-pin \
     -e STEP_P11KIT_SOCKET_PATH=/run/p11-kit/pkcs11-socket \
     -e STEP_CA_PRIVATE_KEY_PKCS11_URI="${ca_private_uri}" \
-    -e STEP_CA_KMS_PKCS11_URI="${ca_kms_uri}" \
     -e STEP_ADMIN_PASSWORD_FILE=/run/secrets/admin-password \
-    -e STEP_ROOT_CERT_FILE="/home/step/.step/certs/${STEP_CA_ROOT_CERT_NAME}" \
-    -e STEP_INTERMEDIATE_CERT_FILE="/home/step/.step/certs/${STEP_CA_INTERMEDIATE_CERT_NAME}" \
+    -e ROOT_CA_CERT_FILE="/home/step/.step/certs/${ROOT_CA_CERT_NAME}" \
+    -e STEP_CA_CERT_FILE="/home/step/.step/certs/${STEP_CA_CERT_NAME}" \
     -e STEP_CA_ADDRESS=:9000 \
     -v "${STEP_TEST_TMPDIR}/p11-kit:/run/p11-kit:z" \
     -v "${STEP_TEST_TMPDIR}/secrets:/run/secrets:z" \

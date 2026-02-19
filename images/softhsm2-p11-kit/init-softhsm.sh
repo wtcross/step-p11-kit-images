@@ -13,8 +13,8 @@ source /usr/local/share/step-p11-kit/logging.sh
 # init-softhsm.sh - Initialize SoftHSM tokens for testing
 
 require_env HSM_PIN_FILE_PATH
-require_env STEP_CA_ROOT_PKCS11_TOKEN_LABEL
-require_env STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL
+require_env ROOT_CA_PKCS11_TOKEN_LABEL
+require_env STEP_CA_PKCS11_TOKEN_LABEL
 
 SOFTHSM_TOKEN_DIR="${SOFTHSM_TOKEN_DIR:-/var/lib/softhsm/tokens}"
 SOFTHSM2_CONF="${SOFTHSM2_CONF:-/etc/softhsm/softhsm2.conf}"
@@ -41,10 +41,10 @@ require_file "${HSM_PIN_FILE_PATH}"
 PIN="$(pkcs11_read_pin "${HSM_PIN_FILE_PATH}")"
 
 log_info "init-softhsm" "Initializing RootCA token..."
-softhsm2-util --init-token --free --label "${STEP_CA_ROOT_PKCS11_TOKEN_LABEL}" --pin "${PIN}" --so-pin "${PIN}"
+softhsm2-util --init-token --free --label "${ROOT_CA_PKCS11_TOKEN_LABEL}" --pin "${PIN}" --so-pin "${PIN}"
 
-log_info "init-softhsm" "Initializing IntermediateCA token..."
-softhsm2-util --init-token --free --label "${STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL}" --pin "${PIN}" --so-pin "${PIN}"
+log_info "init-softhsm" "Initializing IssuingCA token..."
+softhsm2-util --init-token --free --label "${STEP_CA_PKCS11_TOKEN_LABEL}" --pin "${PIN}" --so-pin "${PIN}"
 
 log_info "init-softhsm" "Verifying tokens..."
 softhsm2-util --show-slots

@@ -96,6 +96,30 @@ function pkcs11_parse_uri_attr {
   return 1
 }
 
+function pkcs11_derive_kms_uri_from_private_key_uri {
+  local private_key_uri="${1:?private_key_uri is required}"
+  local token_label=""
+  local module_path=""
+  local pin_source=""
+
+  if ! token_label="$(pkcs11_parse_uri_attr "${private_key_uri}" "token")"; then
+    echo "PKCS#11 URI is missing required attribute 'token': ${private_key_uri}" >&2
+    return 1
+  fi
+
+  if ! module_path="$(pkcs11_parse_uri_attr "${private_key_uri}" "module-path")"; then
+    echo "PKCS#11 URI is missing required attribute 'module-path': ${private_key_uri}" >&2
+    return 1
+  fi
+
+  if ! pin_source="$(pkcs11_parse_uri_attr "${private_key_uri}" "pin-source")"; then
+    echo "PKCS#11 URI is missing required attribute 'pin-source': ${private_key_uri}" >&2
+    return 1
+  fi
+
+  pkcs11_build_kms_uri "${token_label}" "${pin_source}" "${module_path}"
+}
+
 function pkcs11_read_pin {
   local pin_file="${1:?pin_file is required}"
   head -n 1 "${pin_file}"

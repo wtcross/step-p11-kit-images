@@ -11,8 +11,8 @@ source /usr/local/share/step-p11-kit/logging.sh
 # start-p11-kit-server.sh - Start p11-kit server exposing SoftHSM
 
 require_env SOFTHSM_LIB_PATH
-require_env STEP_CA_ROOT_PKCS11_TOKEN_LABEL
-require_env STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL
+require_env ROOT_CA_PKCS11_TOKEN_LABEL
+require_env STEP_CA_PKCS11_TOKEN_LABEL
 
 P11_KIT_SOCKET="${STEP_P11KIT_SOCKET_PATH:-${P11_KIT_SOCKET:-/run/p11-kit/pkcs11-socket}}"
 SOCKET_DIR="$(dirname "${P11_KIT_SOCKET}")"
@@ -34,8 +34,8 @@ p11-kit server \
   --foreground \
   --provider "${SOFTHSM_LIB_PATH}" \
   --name "${SOCKET_NAME}" \
-  "pkcs11:token=${STEP_CA_ROOT_PKCS11_TOKEN_LABEL}" \
-  "pkcs11:token=${STEP_CA_INTERMEDIATE_PKCS11_TOKEN_LABEL}" &
+  "pkcs11:token=${ROOT_CA_PKCS11_TOKEN_LABEL}" \
+  "pkcs11:token=${STEP_CA_PKCS11_TOKEN_LABEL}" &
 
 P11_SERVER_PID=$!
 

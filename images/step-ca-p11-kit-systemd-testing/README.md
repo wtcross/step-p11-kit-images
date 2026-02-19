@@ -11,7 +11,7 @@ At runtime, the harness:
 
 1. Loads nested images from local OCI archives (`podman load`).
 2. Starts user-level `p11-kit-server@<instance>.target`.
-3. Runs `step-ca-p11-kit-test-init` to create root/intermediate certs.
+3. Runs `step-ca-p11-kit-test-init` to create root/issuing certs.
 4. Starts `step-ca-p11-kit@<instance>.target`.
 5. Runs `step ca health` against the running CA container.
 6. Exits non-zero if health never passes.

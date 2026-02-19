@@ -25,19 +25,19 @@ teardown_file() {
   fi
 }
 
-@test "root and intermediate certs are generated" {
-  assert_file_nonempty "${STEP_TEST_TMPDIR}/step/certs/${STEP_CA_ROOT_CERT_NAME}"
-  assert_file_nonempty "${STEP_TEST_TMPDIR}/step/certs/${STEP_CA_INTERMEDIATE_CERT_NAME}"
+@test "root and issuing certs are generated" {
+  assert_file_nonempty "${STEP_TEST_TMPDIR}/step/certs/${ROOT_CA_CERT_NAME}"
+  assert_file_nonempty "${STEP_TEST_TMPDIR}/step/certs/${STEP_CA_CERT_NAME}"
 }
 
-@test "intermediate cert CN uses first STEP_CA_DNS_NAMES value" {
-  run openssl x509 -in "${STEP_TEST_TMPDIR}/step/certs/${STEP_CA_INTERMEDIATE_CERT_NAME}" -noout -subject
+@test "issuing cert CN uses first STEP_CA_DNS_NAMES value" {
+  run openssl x509 -in "${STEP_TEST_TMPDIR}/step/certs/${STEP_CA_CERT_NAME}" -noout -subject
   assert_status_eq 0
   [[ "${output}" =~ CN[[:space:]]*=[[:space:]]*ca\.example\.local ]]
 }
 
-@test "intermediate cert SAN includes all STEP_CA_DNS_NAMES entries" {
-  run openssl x509 -in "${STEP_TEST_TMPDIR}/step/certs/${STEP_CA_INTERMEDIATE_CERT_NAME}" -noout -ext subjectAltName
+@test "issuing cert SAN includes all STEP_CA_DNS_NAMES entries" {
+  run openssl x509 -in "${STEP_TEST_TMPDIR}/step/certs/${STEP_CA_CERT_NAME}" -noout -ext subjectAltName
   assert_status_eq 0
   assert_output_contains "DNS:ca.example.local"
   assert_output_contains "DNS:ca.internal.local"
